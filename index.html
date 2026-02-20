@@ -265,6 +265,82 @@
                 flex-direction: column;
             }
         }
+        
+        /* Video Modal Styles */
+        .video-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .video-modal.open {
+            display: flex;
+        }
+        
+        .video-modal-content {
+            position: relative;
+            max-width: 800px;
+            width: 90%;
+            background-color: #0a192f;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+        }
+        
+        .video-modal-header {
+            padding: 15px 20px;
+            background-color: rgba(17, 34, 64, 0.9);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(67, 97, 238, 0.3);
+        }
+        
+        .video-modal-title {
+            color: #ccd6f6;
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+        
+        .video-modal-close {
+            background: none;
+            border: none;
+            color: #a8b2d1;
+            font-size: 1.5rem;
+            cursor: pointer;
+            transition: color 0.3s ease;
+        }
+        
+        .video-modal-close:hover {
+            color: #64ffda;
+        }
+        
+        .video-container {
+            padding: 20px;
+        }
+        
+        .video-container video {
+            width: 100%;
+            border-radius: 5px;
+            outline: none;
+        }
+        
+        .video-preview-btn {
+            cursor: pointer;
+            margin-left: 10px;
+        }
+        
+        /* Ensure project-link buttons have consistent spacing */
+        .project-info .project-link + .project-link {
+            margin-left: 10px;
+        }
     </style>
 </head>
 <body>
@@ -368,6 +444,9 @@
                                 <a href="https://www.student-assistant.top/" class="project-link">
                                     <i class="fas fa-earth-asia"></i> Visit
                                 </a>
+                                <a href="javascript:void(0)" class="project-link video-preview-btn">
+                                    <i class="fas fa-play-circle"></i> Preview Video
+                                </a>
                             </div>
                         </div>
                     </div>
@@ -391,6 +470,23 @@
             </section>
         </main>
     </div>
+    
+    <!-- Video Modal -->
+    <div id="videoModal" class="video-modal">
+        <div class="video-modal-content">
+            <div class="video-modal-header">
+                <h3 class="video-modal-title">Student Assistant Preview</h3>
+                <button class="video-modal-close">&times;</button>
+            </div>
+            <div class="video-container">
+                <video id="studentAssistantVideo" controls>
+                    <source src="assets/videos/student-assistant-running-preview.mp4" type="video/mp4">
+                    Your browser does not support the video tag.
+                </video>
+            </div>
+        </div>
+    </div>
+    
     <script>
         var is_clicked = false;
         function autoplay(){
@@ -417,6 +513,44 @@
                 document.getElementById('gameDownload').click();
             }
             autoplay();
+        });
+        
+        // Video Modal functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            const videoModal = document.getElementById('videoModal');
+            const videoPreviewBtn = document.querySelector('.video-preview-btn');
+            const videoModalClose = document.querySelector('.video-modal-close');
+            const videoElement = document.getElementById('studentAssistantVideo');
+            
+            if (videoPreviewBtn) {
+                videoPreviewBtn.addEventListener('click', function() {
+                    videoModal.classList.add('open');
+                    videoElement.play();
+                });
+            }
+            
+            if (videoModalClose) {
+                videoModalClose.addEventListener('click', function() {
+                    videoModal.classList.remove('open');
+                    videoElement.pause();
+                });
+            }
+            
+            // Close modal when clicking outside the video content
+            videoModal.addEventListener('click', function(event) {
+                if (event.target === videoModal) {
+                    videoModal.classList.remove('open');
+                    videoElement.pause();
+                }
+            });
+            
+            // Close modal with Escape key
+            document.addEventListener('keydown', function(event) {
+                if (event.key === 'Escape' && videoModal.classList.contains('open')) {
+                    videoModal.classList.remove('open');
+                    videoElement.pause();
+                }
+            });
         });
     </script>
 </body>
