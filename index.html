@@ -63,6 +63,7 @@
         .social-links {
             display: flex;
             gap: 20px;
+            align-items: center;
         }
         
         .social-links a {
@@ -74,6 +75,26 @@
         .social-links a:hover {
             color: #64ffda;
             transform: translateY(-3px);
+        }
+        
+        .nav-link {
+            color: #ccd6f6;
+            text-decoration: none;
+            font-size: 1.1rem;
+            transition: all 0.3s ease;
+            padding: 8px 15px;
+            border-radius: 5px;
+            margin-left: 10px;
+        }
+        
+        .nav-link:hover {
+            color: #64ffda;
+            background-color: rgba(67, 97, 238, 0.1);
+        }
+        
+        .nav-link.active {
+            color: #64ffda;
+            background-color: rgba(67, 97, 238, 0.2);
         }
         
         /* Main content */
@@ -351,6 +372,7 @@
             </div>
             <div class="social-links">
                 <a href="https://github.com/1Vewton" title="GitHub"><i class="fab fa-github"></i></a>
+                <a href="music.html" class="nav-link"><i class="fas fa-music"></i></a>
             </div>
         </header>
         
