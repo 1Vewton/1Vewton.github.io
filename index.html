@@ -181,7 +181,7 @@
                                     A QQ bot(QQ: 3789952308) that can provide daily weather information, answer questions of users and complete other tasks. 
                                 </p>
                                 <a href="https://github.com/1Vewton/crispy-bot" class="project-link">
-                                    <i class="fas fa-github"></i> Visit Code Repo
+                                    <i class="fab fa-github"></i> Visit Code Repo
                                 </a>
                                 <a href="javascript:void(1)" class="project-link video-preview-btn" data-video-src="assets/videos/QQ 2026-05-18 19-45-32.mp4" data-video-title="Crispy Preview">
                                     <i class="fas fa-play-circle"></i> Preview Video
@@ -207,10 +207,47 @@
                 <button class="video-modal-close">&times;</button>
             </div>
             <div class="video-container">
-                <video id="modalVideo" controls>
-                    <source id="modalVideoSource" src="" type="video/mp4">
-                    Your browser does not support the video tag.
-                </video>
+                <div class="video-wrapper">
+                    <video id="modalVideo" controls preload="metadata">
+                        <source id="modalVideoSource" src="" type="video/mp4">
+                        Your browser does not support the video tag.
+                    </video>
+                    
+                    <!-- Buffering indicator -->
+                    <div id="bufferingIndicator" class="buffering-indicator">
+                        <div class="buffering-spinner"></div>
+                        <span id="bufferingText">Buffering...</span>
+                    </div>
+                    
+                    <!-- Error overlay -->
+                    <div id="videoError" class="video-error">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <span id="videoErrorMessage">Network error. Could not load video.</span>
+                    </div>
+                </div>
+                
+                <!-- Video status bar -->
+                <div class="video-status-bar">
+                    <div class="network-info" id="networkInfo">
+                        <i class="fas fa-wifi signal-icon"></i>
+                        <span id="networkStatusText">Checking network...</span>
+                    </div>
+                    <div class="buffer-progress-bar-container">
+                        <div class="buffer-progress-bar" id="bufferProgressBar"></div>
+                    </div>
+                    <span class="buffer-progress" id="bufferProgressText">0% buffered</span>
+                </div>
+                
+                <!-- Low bandwidth notice -->
+                <div id="lowBandwidthNotice" class="low-bandwidth-notice">
+                    <i class="fas fa-exclamation-circle"></i>
+                    <span>Poor network detected. Video may load slowly. You can pause and wait for it to buffer.</span>
+                </div>
+                
+                <!-- Retry button -->
+                <button id="retryButton" class="retry-button">
+                    <i class="fas fa-redo"></i> Retry
+                </button>
             </div>
         </div>
     </div>
@@ -243,8 +280,11 @@
             autoplay();
         });
         
-        // Video Modal functionality
+        // =============================================
+        // Enhanced Video Modal with Poor Network Support
+        // =============================================
         document.addEventListener('DOMContentLoaded', function() {
+            // --- DOM References ---
             const videoModal = document.getElementById('videoModal');
             const videoModalTitle = document.getElementById('videoModalTitle');
             const modalVideo = document.getElementById('modalVideo');
@@ -252,47 +292,416 @@
             const videoModalClose = document.querySelector('.video-modal-close');
             const videoPreviewBtns = document.querySelectorAll('.video-preview-btn');
             
-            // Open modal with the appropriate video
+            // Network & buffering UI elements
+            const bufferingIndicator = document.getElementById('bufferingIndicator');
+            const bufferingText = document.getElementById('bufferingText');
+            const networkInfo = document.getElementById('networkInfo');
+            const networkStatusText = document.getElementById('networkStatusText');
+            const bufferProgressBar = document.getElementById('bufferProgressBar');
+            const bufferProgressText = document.getElementById('bufferProgressText');
+            const lowBandwidthNotice = document.getElementById('lowBandwidthNotice');
+            const videoError = document.getElementById('videoError');
+            const videoErrorMessage = document.getElementById('videoErrorMessage');
+            const retryButton = document.getElementById('retryButton');
+            
+            // --- State ---
+            let currentVideoSrc = '';
+            let currentVideoTitle = '';
+            let retryCount = 0;
+            const MAX_RETRIES = 3;
+            let isBuffering = false;
+            let bufferingTimeout = null;
+            let lastNetworkType = 'unknown';
+            let lastDownlink = 0;
+            
+            // =============================================
+            // 1. Network Detection (Network Information API)
+            // =============================================
+            function getNetworkQuality() {
+                let quality = 'unknown';
+                let downlink = 0;
+                let effectiveType = 'unknown';
+                
+                if (navigator.connection) {
+                    downlink = navigator.connection.downlink || 0;
+                    effectiveType = navigator.connection.effectiveType || 'unknown';
+                    
+                    if (downlink === 0 && effectiveType === 'slow-2g') {
+                        quality = 'very-slow';
+                    } else if (downlink < 0.5 || effectiveType === 'slow-2g' || effectiveType === '2g') {
+                        quality = 'slow';
+                    } else if (downlink < 1.5 || effectiveType === '3g') {
+                        quality = 'medium';
+                    } else {
+                        quality = 'fast';
+                    }
+                } else {
+                    // Network Information API not available - assume fast
+                    quality = 'fast';
+                    effectiveType = 'unknown';
+                }
+                
+                return { quality, downlink, effectiveType };
+            }
+            
+            function updateNetworkUI() {
+                const net = getNetworkQuality();
+                lastNetworkType = net.effectiveType;
+                lastDownlink = net.downlink;
+                
+                // Update network info display
+                networkInfo.className = 'network-info';
+                let statusText = '';
+                let iconClass = 'fas fa-wifi signal-icon';
+                
+                if (net.quality === 'very-slow') {
+                    networkInfo.classList.add('slow');
+                    statusText = 'Very Slow (Offline?)';
+                    iconClass = 'fas fa-exclamation-triangle signal-icon';
+                } else if (net.quality === 'slow') {
+                    networkInfo.classList.add('slow');
+                    statusText = 'Slow (' + net.downlink.toFixed(1) + ' Mbps)';
+                } else if (net.quality === 'medium') {
+                    networkInfo.classList.add('medium');
+                    statusText = 'Medium (' + net.downlink.toFixed(1) + ' Mbps)';
+                } else {
+                    networkInfo.classList.add('fast');
+                    statusText = 'Fast (' + (net.downlink > 0 ? net.downlink.toFixed(1) : '10+') + ' Mbps)';
+                }
+                
+                networkInfo.querySelector('.signal-icon').className = iconClass;
+                networkStatusText.textContent = statusText;
+                
+                // Show/hide low bandwidth notice
+                if (net.quality === 'very-slow' || net.quality === 'slow') {
+                    lowBandwidthNotice.classList.add('visible');
+                    
+                    // Adjust video settings for slow network
+                    modalVideo.preload = 'none';        // Don't preload anything
+                    modalVideo.pause();                 // Pause to let buffer accumulate
+                } else if (net.quality === 'medium') {
+                    lowBandwidthNotice.classList.remove('visible');
+                    modalVideo.preload = 'metadata';    // Only load metadata
+                } else {
+                    lowBandwidthNotice.classList.remove('visible');
+                    modalVideo.preload = 'metadata';    // Default
+                }
+            }
+            
+            // Listen for network changes
+            if (navigator.connection) {
+                navigator.connection.addEventListener('change', function() {
+                    updateNetworkUI();
+                });
+            }
+            
+            // =============================================
+            // 2. Buffering Detection & UI
+            // =============================================
+            function showBuffering(message) {
+                bufferingIndicator.classList.add('visible');
+                bufferingText.textContent = message || 'Buffering...';
+                isBuffering = true;
+            }
+            
+            function hideBuffering() {
+                bufferingIndicator.classList.remove('visible');
+                isBuffering = false;
+            }
+            
+            function showError(message) {
+                videoError.classList.add('visible');
+                videoErrorMessage.textContent = message || 'Could not load the video due to a network issue.';
+            }
+            
+            function hideError() {
+                videoError.classList.remove('visible');
+            }
+            
+            function updateBufferProgress() {
+                const video = modalVideo;
+                if (video.buffered && video.buffered.length > 0 && video.duration > 0) {
+                    const bufferedEnd = video.buffered.end(video.buffered.length - 1);
+                    const percent = Math.round((bufferedEnd / video.duration) * 100);
+                    bufferProgressBar.style.width = percent + '%';
+                    bufferProgressText.textContent = percent + '% buffered';
+                }
+            }
+            
+            // =============================================
+            // 3. Smart Loading with Retry Logic
+            // =============================================
+            function loadVideoWithRetry(src) {
+                currentVideoSrc = src;
+                retryCount = 0;
+                hideError();
+                hideBuffering();
+                retryButton.classList.remove('visible');
+                
+                // Update network info before loading
+                updateNetworkUI();
+                
+                // Set source and begin loading
+                modalVideoSource.src = src;
+                modalVideo.load();
+                
+                // Show immediate buffering indicator if network is slow
+                const net = getNetworkQuality();
+                if (net.quality === 'very-slow' || net.quality === 'slow' || net.quality === 'medium') {
+                    showBuffering('Loading video on ' + net.quality + ' connection...');
+                }
+            }
+            
+            function attemptRetry() {
+                retryCount++;
+                hideError();
+                retryButton.classList.remove('visible');
+                
+                const net = getNetworkQuality();
+                showBuffering('Retrying... (' + retryCount + '/' + MAX_RETRIES + ')');
+                
+                // Force reload
+                modalVideo.load();
+            }
+            
+            // =============================================
+            // 4. Video Event Handlers
+            // =============================================
+            
+            // Waiting for data (buffering)
+            modalVideo.addEventListener('waiting', function() {
+                const net = getNetworkQuality();
+                if (net.quality === 'very-slow' || net.quality === 'slow') {
+                    showBuffering('Buffering on slow connection...');
+                    // Auto-pause on very slow networks to let buffer accumulate
+                    modalVideo.pause();
+                } else if (net.quality === 'medium') {
+                    showBuffering('Loading...');
+                } else {
+                    // On fast networks, only show briefly
+                    showBuffering('Loading...');
+                    clearTimeout(bufferingTimeout);
+                    bufferingTimeout = setTimeout(function() {
+                        if (isBuffering) {
+                            showBuffering('Still loading...');
+                        }
+                    }, 3000);
+                }
+            });
+            
+            // Can play (enough data)
+            modalVideo.addEventListener('canplay', function() {
+                hideBuffering();
+                hideError();
+                
+                // Auto-play or resume if paused for buffering
+                const net = getNetworkQuality();
+                if (net.quality === 'very-slow') {
+                    // On very slow networks, buffer more before playing
+                    setTimeout(function() {
+                        modalVideo.play().catch(function(e) {
+                            // Autoplay prevented - user needs to click
+                            showBuffering('Click to play');
+                        });
+                    }, 2000);
+                } else if (net.quality !== 'slow' && !modalVideo.paused) {
+                    // Normal playback
+                    modalVideo.play().catch(function(e) {
+                        // Autoplay prevented
+                    });
+                }
+                
+                updateBufferProgress();
+            });
+            
+            // Playing
+            modalVideo.addEventListener('playing', function() {
+                hideBuffering();
+                hideError();
+            });
+            
+            // Progress (data has been downloaded)
+            modalVideo.addEventListener('progress', function() {
+                updateBufferProgress();
+                
+                // If we've buffered enough on slow network, resume playback
+                const net = getNetworkQuality();
+                if (modalVideo.paused && !modalVideo.seeking && videoModal.classList.contains('open')) {
+                    // Check if enough buffer
+                    if (modalVideo.buffered && modalVideo.buffered.length > 0 && modalVideo.duration > 0) {
+                        const bufferedEnd = modalVideo.buffered.end(modalVideo.buffered.length - 1);
+                        const bufferedPercent = (bufferedEnd / modalVideo.duration) * 100;
+                        
+                        // Resume if we've buffered at least 10 seconds or 15% of the video
+                        if (bufferedEnd > 10 || bufferedPercent > 15) {
+                            const netQuality = getNetworkQuality();
+                            if (netQuality.quality === 'slow' || netQuality.quality === 'medium') {
+                                modalVideo.play().catch(function() {});
+                            }
+                        }
+                    }
+                }
+            });
+            
+            // Error handling
+            modalVideo.addEventListener('error', function() {
+                hideBuffering();
+                
+                var errorMsg = 'An unknown error occurred.';
+                var mediaError = modalVideo.error;
+                
+                if (mediaError) {
+                    switch (mediaError.code) {
+                        case MediaError.MEDIA_ERR_ABORTED:
+                            errorMsg = 'Video playback was aborted.';
+                            break;
+                        case MediaError.MEDIA_ERR_NETWORK:
+                            errorMsg = 'A network error occurred. The video could not be downloaded.';
+                            break;
+                        case MediaError.MEDIA_ERR_DECODE:
+                            errorMsg = 'Video decoding failed. The file may be corrupted.';
+                            break;
+                        case MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED:
+                            errorMsg = 'The video format is not supported by your browser.';
+                            break;
+                        default:
+                            errorMsg = 'An unknown error occurred (code ' + mediaError.code + ').';
+                    }
+                }
+                
+                if (retryCount < MAX_RETRIES) {
+                    // Auto-retry with exponential backoff
+                    var delay = Math.pow(2, retryCount) * 1000;
+                    showBuffering('Network error. Retrying in ' + (delay / 1000) + 's...');
+                    
+                    setTimeout(function() {
+                        attemptRetry();
+                    }, delay);
+                } else {
+                    // Give up and show manual retry button
+                    showError(errorMsg + ' Please check your connection and try again.');
+                    retryButton.classList.add('visible');
+                    bufferProgressBar.style.width = '0%';
+                    bufferProgressText.textContent = 'Failed to load';
+                }
+            });
+            
+            // Stalled (data flow stopped)
+            modalVideo.addEventListener('stalled', function() {
+                var net = getNetworkQuality();
+                if (net.quality === 'very-slow' || net.quality === 'slow') {
+                    showBuffering('Connection stalled. Waiting for data...');
+                }
+            });
+            
+            // Suspended (loading suspended)
+            modalVideo.addEventListener('suspend', function() {
+                if (isBuffering) {
+                    hideBuffering();
+                }
+            });
+            
+            // =============================================
+            // 5. Open Modal Handler
+            // =============================================
             videoPreviewBtns.forEach(function(btn) {
                 btn.addEventListener('click', function() {
-                    const videoSrc = this.getAttribute('data-video-src');
-                    const videoTitle = this.getAttribute('data-video-title');
+                    var videoSrc = this.getAttribute('data-video-src');
+                    var videoTitle = this.getAttribute('data-video-title');
                     
-                    // Update video source
-                    modalVideoSource.src = videoSrc;
-                    modalVideo.load();
+                    currentVideoTitle = videoTitle;
+                    
+                    // Reset state
+                    hideError();
+                    hideBuffering();
+                    retryButton.classList.remove('visible');
+                    bufferProgressBar.style.width = '0%';
+                    bufferProgressText.textContent = '0% buffered';
                     
                     // Update title
                     videoModalTitle.textContent = videoTitle;
                     
-                    // Open modal and play
+                    // Open modal
                     videoModal.classList.add('open');
-                    modalVideo.play();
+                    
+                    // Load video with network-aware strategy
+                    loadVideoWithRetry(videoSrc);
+                    
+                    // Try to play
+                    var playPromise = modalVideo.play();
+                    if (playPromise !== undefined) {
+                        playPromise.catch(function(error) {
+                            // Autoplay was prevented or network issue
+                            var net = getNetworkQuality();
+                            if (net.quality === 'slow' || net.quality === 'very-slow') {
+                                showBuffering('Poor network detected. Video will play once enough data loads.');
+                            } else {
+                                // User interaction needed
+                                showBuffering('Click the video to play');
+                            }
+                        });
+                    }
                 });
             });
             
+            // =============================================
+            // 6. Retry Button Handler
+            // =============================================
+            retryButton.addEventListener('click', function() {
+                retryCount = 0;
+                loadVideoWithRetry(currentVideoSrc);
+                modalVideo.play().catch(function() {});
+            });
+            
+            // =============================================
+            // 7. Close Modal Handlers
+            // =============================================
             if (videoModalClose) {
                 videoModalClose.addEventListener('click', function() {
-                    videoModal.classList.remove('open');
-                    modalVideo.pause();
+                    resetAndClose();
                 });
             }
             
-            // Close modal when clicking outside the video content
             videoModal.addEventListener('click', function(event) {
                 if (event.target === videoModal) {
-                    videoModal.classList.remove('open');
-                    modalVideo.pause();
+                    resetAndClose();
                 }
             });
             
-            // Close modal with Escape key
             document.addEventListener('keydown', function(event) {
                 if (event.key === 'Escape' && videoModal.classList.contains('open')) {
-                    videoModal.classList.remove('open');
-                    modalVideo.pause();
+                    resetAndClose();
                 }
             });
+            
+            function resetAndClose() {
+                videoModal.classList.remove('open');
+                modalVideo.pause();
+                modalVideo.removeAttribute('src');
+                modalVideo.load();
+                hideBuffering();
+                hideError();
+                retryButton.classList.remove('visible');
+                bufferProgressBar.style.width = '0%';
+                bufferProgressText.textContent = '0% buffered';
+                clearTimeout(bufferingTimeout);
+                isBuffering = false;
+                retryCount = 0;
+            }
+            
+            // =============================================
+            // 8. Periodic buffer progress update while open
+            // =============================================
+            setInterval(function() {
+                if (videoModal.classList.contains('open')) {
+                    updateBufferProgress();
+                }
+            }, 1000);
+            
+            // =============================================
+            // 9. Initial network check
+            // =============================================
+            updateNetworkUI();
         });
     </script>
 </body>
