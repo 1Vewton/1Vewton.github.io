@@ -89,7 +89,7 @@
                         <div class="project-details">
                             <div class="project-info">
                                 <p class="project-description">
-                                    The official account for MLO club of SCIE. 
+                                    The official account for MLO club of SCIE. Some articles about Machine Learning, Computer Science or Material Science would be posted there. 
                                 </p>
                                 <a href="https://mp.weixin.qq.com/s/Gvk5iH-WNEsyhpKDSYfqUg" class="project-link">
                                     <i class="fas fa-book"></i> Read Mainpage
@@ -110,7 +110,7 @@
                                 <a href="https://www.student-assistant.top/" class="project-link">
                                     <i class="fas fa-earth-asia"></i> Visit
                                 </a>
-                                <a href="javascript:void(0)" class="project-link video-preview-btn">
+                                <a href="javascript:void(0)" class="project-link video-preview-btn" data-video-src="assets/videos/student-assistant-running-preview.mp4" data-video-title="Student Assistant Preview">
                                     <i class="fas fa-play-circle"></i> Preview Video
                                 </a>
                             </div>
@@ -154,6 +154,41 @@
                             </div>
                         </div>
                     </div>
+                    <!-- Project 8 -->
+                    <div class="project-item">
+                        <div class="project-header">
+                            <h3 class="project-title">Xiaohongshu Account</h3>
+                        </div>
+                        <div class="project-details">
+                            <div class="project-info">
+                                <p class="project-description">
+                                    A Xiaohongshu account for posting articles related to material science. 
+                                </p>
+                                <a href="https://www.xiaohongshu.com/user/profile/6572ae46000000001c01bc1a" class="project-link">
+                                    <i class="fas fa-book"></i> See Profile
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Project 9 -->
+                    <div class="project-item">
+                        <div class="project-header">
+                            <h3 class="project-title">Crispy</h3>
+                        </div>
+                        <div class="project-details">
+                            <div class="project-info">
+                                <p class="project-description">
+                                    A QQ bot(QQ: 3789952308) that can provide daily weather information, answer questions of users and complete other tasks. 
+                                </p>
+                                <a href="https://github.com/1Vewton/crispy-bot" class="project-link">
+                                    <i class="fas fa-github"></i> Visit Code Repo
+                                </a>
+                                <a href="javascript:void(1)" class="project-link video-preview-btn" data-video-src="assets/videos/QQ 2026-05-18 19-45-32.mp4" data-video-title="Crispy Preview">
+                                    <i class="fas fa-play-circle"></i> Preview Video
+                                </a>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </section>
         </main>
@@ -168,12 +203,12 @@
     <div id="videoModal" class="video-modal">
         <div class="video-modal-content">
             <div class="video-modal-header">
-                <h3 class="video-modal-title">Student Assistant Preview</h3>
+                <h3 class="video-modal-title" id="videoModalTitle">Preview</h3>
                 <button class="video-modal-close">&times;</button>
             </div>
             <div class="video-container">
-                <video id="studentAssistantVideo" controls>
-                    <source src="assets/videos/student-assistant-running-preview.mp4" type="video/mp4">
+                <video id="modalVideo" controls>
+                    <source id="modalVideoSource" src="" type="video/mp4">
                     Your browser does not support the video tag.
                 </video>
             </div>
@@ -211,21 +246,35 @@
         // Video Modal functionality
         document.addEventListener('DOMContentLoaded', function() {
             const videoModal = document.getElementById('videoModal');
-            const videoPreviewBtn = document.querySelector('.video-preview-btn');
+            const videoModalTitle = document.getElementById('videoModalTitle');
+            const modalVideo = document.getElementById('modalVideo');
+            const modalVideoSource = document.getElementById('modalVideoSource');
             const videoModalClose = document.querySelector('.video-modal-close');
-            const videoElement = document.getElementById('studentAssistantVideo');
+            const videoPreviewBtns = document.querySelectorAll('.video-preview-btn');
             
-            if (videoPreviewBtn) {
-                videoPreviewBtn.addEventListener('click', function() {
+            // Open modal with the appropriate video
+            videoPreviewBtns.forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    const videoSrc = this.getAttribute('data-video-src');
+                    const videoTitle = this.getAttribute('data-video-title');
+                    
+                    // Update video source
+                    modalVideoSource.src = videoSrc;
+                    modalVideo.load();
+                    
+                    // Update title
+                    videoModalTitle.textContent = videoTitle;
+                    
+                    // Open modal and play
                     videoModal.classList.add('open');
-                    videoElement.play();
+                    modalVideo.play();
                 });
-            }
+            });
             
             if (videoModalClose) {
                 videoModalClose.addEventListener('click', function() {
                     videoModal.classList.remove('open');
-                    videoElement.pause();
+                    modalVideo.pause();
                 });
             }
             
@@ -233,7 +282,7 @@
             videoModal.addEventListener('click', function(event) {
                 if (event.target === videoModal) {
                     videoModal.classList.remove('open');
-                    videoElement.pause();
+                    modalVideo.pause();
                 }
             });
             
@@ -241,7 +290,7 @@
             document.addEventListener('keydown', function(event) {
                 if (event.key === 'Escape' && videoModal.classList.contains('open')) {
                     videoModal.classList.remove('open');
-                    videoElement.pause();
+                    modalVideo.pause();
                 }
             });
         });
